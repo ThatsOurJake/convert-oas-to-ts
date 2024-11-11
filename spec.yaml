@@ -1,0 +1,571 @@
+openapi: 3.0.3
+info:
+  title: Spotlight Reader Service
+  description: Provides customer specific actions and recommendations given a
+    channel and context
+  version: 1.0.2
+externalDocs:
+  description: Next Best Actions - High Level Design (Roadmap)
+  url: https://confluence.bskyb.com/display/CBSAna/NBA+E2E+Design+Roadmap
+servers:
+  - url: https://dthing01d04.bskyb.com/cbs-spotlight-reader-service/
+tags:
+  - name: Recommendations
+    description: Represents customer specific product recommendations
+paths:
+  /v2/product-recommendations:
+    post:
+      tags:
+        - Recommendations
+      summary: Fetch product / offer recommendations for a customer through Intel Recs
+      description: >
+        Utilises personalisation data sources to provide recommended
+        products which are validated 
+
+        through contextual catalogue. Only saleable products are returned. 
+
+
+        In the event of any downstream errors:
+          * If a downstream service is unavailable for any reason an error will be thrown indicating 
+            the impact area e.g. fetch-recommendation-failure or quote-failure
+          * If there are issues with a single product when attempting a quote for multiple, the 
+            successful products will be returned and the product with issues omitted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRecommendationRequest-V2"
+            encoding:
+              payload:
+                contentType: application/json
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductRecommendationResponse"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        4xx:
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: internal.failure
+                description: Internal error occurred when processing recommendations
+                exceptionId: 593e1840-119f-4b2f-950d-961b6fa21458
+        5xx:
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: intellirecs.failure
+                description: Error occurred when fetching recommendations from intellirecs
+                exceptionId: 593e1840-119f-4b2f-950d-961b6fa21458
+  /v3/product-recommendations:
+    post:
+      tags:
+        - Recommendations
+      summary: Fetch product / offer recommendations for a customer through Adobe Target
+      description: >+
+        Utilises personalisation data sources to provide recommended
+        products which are validated through contextual catalogue. Only saleable
+        products are returned. 
+
+        In the event of any downstream errors:
+          * If a downstream service is unavailable for any reason an error will be thrown indicating the impact area e.g. journeymanager.failure or intelrecs.failure
+          * If there are issues with a single product when attempting a quote for multiple, the successful products will be returned and the product with issues omitted.
+            
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRecommendationRequest-V3"
+            encoding:
+              payload:
+                contentType: application/json
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductRecommendationResponse"
+        "400":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: client.error
+                description: Client error occurred when processing recommendations
+                exceptionId: 593e1840-119f-4b2f-950d-961b6fa21458
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: intellirecs.failure
+                description: Error occurred when fetching recommendations from intellirecs
+                exceptionId: 593e1840-119f-4b2f-950d-961b6fa21458
+  /v4/product-recommendations:
+    post:
+      tags:
+        - Recommendations
+      summary: Fetch product / offer recommendations for a customer
+      description: >+
+        Utilises personalisation data sources to provide recommended
+        products which are validated through contextual catalogue. Only saleable
+        products are returned. 
+
+        In the event of any downstream errors:
+          * If a downstream service is unavailable for any reason an error will be thrown indicating the impact area e.g. journeymanager.failure or intelrecs.failure
+          * If there are issues with a single product when attempting a quote for multiple, the successful products will be returned and the product with issues omitted.
+            
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductRecommendationRequest-V4"
+            encoding:
+              payload:
+                contentType: application/json
+      responses:
+        "200":
+          description: Successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductRecommendationResponse-V4"
+        "400":
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: client.error
+                description: Client error occurred when processing recommendations
+                exceptionId: 593e1840-119f-4b2f-950d-961b6fa21458
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                code: intellirecs.failure
+                description: Error occurred when fetching recommendations from intellirecs
+                exceptionId: 593e1840-119f-4b2f-950d-961b6fa21458
+components:
+  schemas:
+    ProductRecommendationRequest-V2:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerRequest-V2"
+        channel:
+          $ref: "#/components/schemas/Channel"
+        context:
+          type: string
+          description: Represents the semantic context for which we are requesting
+            recommendations. This is channel agnostic.
+          example: deals
+      required:
+        - customer
+        - channel
+        - context
+    CustomerRequest-V2:
+      type: object
+      description: Contains customer identifiers
+      properties:
+        partyId:
+          type: string
+          description: Ye olde faithful for finding a customer
+      required:
+        - partyId
+    ProductRecommendationRequest-V3:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerRequest-V3"
+        channel:
+          $ref: "#/components/schemas/Channel"
+        context:
+          type: string
+          description: Represents the semantic context for which we are requesting
+            recommendations. This is channel agnostic.
+          example: deals
+        maxCount:
+          type: integer
+          minimum: 1
+          maximum: 10
+          description: Represents the maximum number of recommendations that should be
+            returned.
+          example: 1
+        interactionReference:
+          type: string
+          description: Represents the interaction ID that is being used by the customer,
+            this will be used by JM to make the evaluation more accurate.
+          example: sps-ir-865a5a7f-b3e1-4c3c-bb83-49240e3a5412
+      required:
+        - customer
+        - channel
+        - context
+        - maxCount
+    CustomerRequest-V3:
+      type: object
+      description: Contains customer identifiers
+      properties:
+        partyId:
+          type: string
+          description: Ye olde faithful for finding a customer
+        skyId:
+          type: string
+          description: Sky ID - for Adobe Target this is profileID - a hashed Sky IDentity
+            value. This is in the Sky Cookie that is dropped.
+        visitorId:
+          type: string
+          description: Adobe ID (ECID - Cookie used to link click stream events) We have
+            gone with visitorId as it is an ID that can be used for any visitor
+            ID even through it will be primarily used for Adobe. If Adobe
+            specific one is required we will add it later.
+        sessionId:
+          type: string
+          description: Adobe session ID
+      required:
+        - partyId
+        - skyId
+        - visitorId
+    ProductRecommendationRequest-V4:
+      type: object
+      properties:
+        customer:
+          $ref: "#/components/schemas/CustomerRequest-V4"
+        channel:
+          $ref: "#/components/schemas/Channel"
+        context:
+          type: string
+          description: Represents the semantic context for which we are requesting
+            recommendations. This is channel agnostic.
+          example: deals
+        maxCount:
+          type: integer
+          description: Represents the maximum number of eligible recommendations that
+            should be returned
+          minimum: 1
+          maximum: 4
+          example: 1
+        interactionReference:
+          type: string
+          description: Represents the interaction ID that is being used by the customer,
+            this will be used by JM to make the evaluation more accurate.
+          example: sps-ir-865a5a7f-b3e1-4c3c-bb83-49240e3a5412
+        include:
+          type: array
+          items:
+            type: string
+            description: The items define additional properties that a client would like
+              returned
+            example: assistedChannelContext
+          description: Allows for clients to request additional data in the response
+            ensuring the payload is kept to a minimum by default.
+        agent:
+          $ref: "#/components/schemas/Agent"
+      required:
+        - customer
+        - channel
+        - maxCount
+    CustomerRequest-V4:
+      type: object
+      description: Contains customer identifiers
+      properties:
+        partyId:
+          type: string
+          description: Ye olde faithful for finding a customer
+        skyId:
+          type: string
+          description: Sky ID - for Adobe Target this is profileID - a hashed Sky IDentity
+            value. This is in the Sky Cookie that is dropped.
+        visitorId:
+          type: string
+          description: Adobe ID (ECID - Cookie used to link click stream events) We have
+            gone with visitorId as it is an ID that can be used for any visitor
+            ID even through it will be primarily used for Adobe. If Adobe
+            specific one is required we will add it later.
+        sessionId:
+          type: string
+          description: Adobe session ID
+      required:
+        - partyId
+    Channel:
+      type: string
+      description: >
+        Represents the supported channels:
+          * DIRECT - Managed through sirius
+          * RETAIL - Managed through in store systems
+          * SKYAPP - Digital through the My Sky Mobile application
+          * DOTCOM - Digital through sky.com
+          * INTERACTIVE - Managed through our Sky hardware devices e.g. Sky Q / Sky Glass
+      enum:
+        - DIRECT
+        - RETAIL
+        - SKYAPP
+        - DOTCOM
+        - INTERACTIVE
+    ProductRecommendationResponse:
+      type: object
+      properties:
+        decisionId:
+          type: string
+          description: Represents the decision reference for a customer recommendation
+            request
+        recommendations:
+          type: array
+          description: A ranked list of product recommendations. If there are no
+            recommendations an empty array will be returned.
+          items:
+            $ref: "#/components/schemas/ProductRecommendation"
+    ProductRecommendation:
+      type: object
+      properties:
+        externalId:
+          type: string
+          description: Represents the product recommendation identifier
+        type:
+          $ref: "#/components/schemas/ProductRecommendationType"
+        scope:
+          $ref: "#/components/schemas/ProductRecommendationScope"
+        contextualCatalogueResponse:
+          $ref: "#/components/schemas/ContextualCatalogueResponse"
+    ProductRecommendationType:
+      type: string
+      description: >
+        Represents the supported product recommendation types:
+          * RETENTION - This is a retention based recommendation, which will equate to an offer for an owned product
+          * PRODUCT - This is a product based recommendation
+          * PROMO_OFFER - This is a downgrade prevention promotional offer
+      enum:
+        - RETENTION
+        - PRODUCT
+        - PROMO_OFFER
+    ProductRecommendationScope:
+      type: string
+      description: >
+        Provides specificity when used in relation with `type`:
+          * GENERIC - The recommendation cannot be associated with a single product or retention e.g. Sky Glass or Broadband & Talk, it requires configuration
+          * SPECIFIC - The recommendation is specific to a product or retention
+      enum:
+        - GENERIC
+        - SPECIFIC
+    ProductRecommendationResponse-V4:
+      type: object
+      properties:
+        decisionId:
+          type: string
+          description: Represents the decision reference for a customer recommendation
+            request
+        recommendations:
+          type: array
+          description: A ranked list of product recommendations. If there are no
+            recommendations an empty array will be returned.
+          items:
+            $ref: "#/components/schemas/ProductRecommendation-V4"
+    ProductRecommendation-V4:
+      type: object
+      properties:
+        externalId:
+          type: string
+          description: Represents the product recommendation identifier
+        type:
+          $ref: "#/components/schemas/ProductRecommendationType"
+        scope:
+          $ref: "#/components/schemas/ProductRecommendationScope"
+        contextualCatalogueResponse:
+          $ref: "#/components/schemas/ContextualCatalogueResponse"
+        assistedChannelContext:
+          $ref: "#/components/schemas/AssistedChannelContext"
+    AssistedChannelContext:
+      type: object
+      description: null
+      properties:
+        rank:
+          type: integer
+          description: Priority ranking of recommendation
+          example: 1
+        rating:
+          type: integer
+          description: Rating associated to recommendation, for agent use
+          example: 1
+        category:
+          type: string
+          description: This is the category of the product or offer e.g. Broadband, SOIP
+            etc.
+          example: SOIP
+        isNewShop:
+          type: boolean
+          description: Flag indicating whether to point to new shop or old shop (SIS)
+        contextualMessages:
+          type: array
+          description: >
+            Values returned by Sky Data represented by the contextualMessaging
+            data.
+
+
+            These control the "They could benefit from this because" text on the highlight detail code 
+
+            and attribute used to lift content from Content Service.
+
+
+            We should NOT have to define a maximum number of reasons to return. We should iterate over 
+
+            the contextualMesaging from Sky Data (they are ranked) and generate a reason[X] for each rank. 
+          items:
+            $ref: "#/components/schemas/ContextualMessage"
+    ContextualMessage:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Represents a specific contextual message variant
+          example: HOUSEHOLD_DEMOGRAPHIC_1
+        rank:
+          type: integer
+          description: Priority ranking of contextual message
+          example: 1
+        attributes:
+          type: object
+          description: This is an arbitrary list of contextual message data, which is used
+            to enhance agent messaging.
+          properties:
+            <key>:
+              type: string
+              example: value
+    Agent:
+      type: object
+      description: Used to encapsulate agent specific data
+      properties:
+        id:
+          type: string
+          description: Represents an agent ID that was used to trigger the request.
+          example: todo
+        context:
+          $ref: "#/components/schemas/AgentContext"
+      required:
+        - id
+    AgentContext:
+      type: object
+      description: Used to provide context for the agent request
+      properties:
+        callType:
+          type: string
+          description: The current interaction event based on the customers status e.g.
+            Turnaround, Winback or Pipeline or UI action being performed e.g.
+            Upgrade, Downgrade
+          example: Winback
+        previousTransferDepartment:
+          type: string
+          description: The department the call was last transferred from based on Previous
+            SCT Grouping e.g. Retention – Value, Billing, TV Tech
+          example: TV Tech
+        currentDepartment:
+          type: string
+          description: The department the call landed into based on SCT Grouping e.g.
+            Retention – Value, Billing, TV Tech
+          example: Billing
+        callReasonAppTag:
+          type: string
+          description: The L1 natural language app tag e.g. cancel_tv, book-box_office,
+            enquire-account, downgrade-sky_sport
+          example: cancel_tv
+        cancelReasonAppTag:
+          type: string
+          description: The L2 natural language app tag e.g. change-provider, report-cost,
+            request-better offer
+          example: change-provider
+        additionalCancelReason:
+          type: string
+          description: Reason captured from new transfer screens e.g. Cost, Equipment
+          example: Cost
+        agentTerritory:
+          $ref: "#/components/schemas/Territory"
+          description: Represents the agent territory
+        customerTerritory:
+          $ref: "#/components/schemas/Territory"
+          description: Represents the customer territory
+    Territory:
+      type: string
+      description: |
+        Represents the supported territories:
+          * GBR
+          * IRL
+      enum:
+        - GBR
+        - IRL
+    ContextualCatalogueResponse:
+      type: object
+      description: >
+        This represents a Contextual Catalogue response for products or
+        offers. The following properties link to specific domain models. We are
+        unable to link direct so please search the page for the model name.
+      properties:
+        id:
+          type: string
+        products:
+          type: array
+          items:
+            type: object
+            description: >
+              See
+              [Product](https://dthing01d04.bskyb.com/cbs-sales-processing-service/swagger-ui/index.html#/contextual-catalogue-controller/generateContextualCatalogue)
+        offers:
+          type: array
+          items:
+            type: object
+            description: >
+              Open API not yet available so please
+              see  [Offers](https://confluence.bskyb.com/display/CBSAna/Extend+Existing+Voice+Intel+Recs+Capability+to+Digital+Channels+%28Spotlight+to+Digital%29+-+Solution+Design#ExtendExistingVoiceIntelRecsCapabilitytoDigitalChannels(SpotlighttoDigital)SolutionDesign-cc-offers-response)
+    ErrorResponse:
+      type: object
+      description: Represents error data that can be used to triage issues
+      properties:
+        code:
+          type: string
+          description: A specific error code this error represents
+          example: too.many.requests
+        description:
+          description: This should be a meaningful message that will aid investigations
+          type: string
+          example: Error occurred as we are unable to process any more requests; max X per
+            duration exceeded
+        exceptionId:
+          type: string
+          description: The unique identifier of the exception
+          example: 593e1840-119f-4b2f-950d-961b6fa21458

@@ -1,0 +1,9 @@
+{
+  "extends": "@sky-uk/dt-ts-configs/tsconfig.node.strict.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}
