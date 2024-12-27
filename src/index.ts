@@ -2,11 +2,13 @@ import path from 'path';
 import OpenAPIParser from '@readme/openapi-parser';
 import * as ts from "typescript";
 import fs from 'fs';
+import pascalCase from './utils/pascal-case';
+import createTypes from './create-types';
 
 type methods = 'get' | 'post' | 'put' | 'delete';
-type swaggerTypes = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
+export type swaggerTypes = 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'object';
 
-type properties = {
+export type properties = {
   type: 'string';
   description?: string
 } | {
@@ -48,151 +50,85 @@ interface Method {
   }
 }
 
-const swaggerTypeToTsType = (type: swaggerTypes) => {
-  switch (type) {
-    case 'string':
-      return ts.SyntaxKind.StringKeyword;
-    case 'number':
-    case 'integer':
-      return ts.SyntaxKind.NumberKeyword;
-    case 'boolean':
-      return ts.SyntaxKind.BooleanKeyword;
-    default:
-      return ts.SyntaxKind.UnknownKeyword;
-  }
-}
-
-const pathToInterfaceName = (pth: string) => {
-  const parts = pth.replace(/\//g, '~').replace(/-/g, '~').split('~');
-  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
-};
-
 (async () => {
   const file = path.join('spec.yaml');
   const parsed = await OpenAPIParser.dereference(file);
-  const instructions = [];
+  const instructions: ts.TypeElement[] = [];
 
   const { paths, info: { title } } = parsed;
 
-  for (let p in paths) {
-    const path = paths[p];
-    
-    const baseInterfaceName = pathToInterfaceName(p);
+  const baseInterfaceName = pascalCase(title);
 
-    const baseInterfacePropsInstructions = [];
+  for (const key in paths) {
+    const pathValue = paths[key];
 
-    baseInterfacePropsInstructions.push(ts.factory.createPropertySignature(
-      undefined,
-      ts.factory.createIdentifier('name'),
-      undefined,
-      ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(title)),
-    ));
+    const pathInterfaceName = pascalCase(key);
+    const pathInterfaceMembers: ts.TypeElement[] = [];
 
-    baseInterfacePropsInstructions.push(ts.factory.createPropertySignature(
-      undefined,
-      ts.factory.createIdentifier('url'),
-      undefined,
-      ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(p)),
-    ));
+    for (const httpMethod in pathValue) {
+      const method = pathValue[httpMethod as methods] as Method;
 
-    for (let m in path) {
-      const method = path[m as methods] as Method;
-      const mStr = pathToInterfaceName(m);
-      const methodBaseInterfaceName = `${baseInterfaceName}${mStr}`;
-
-      const methodInstructions: {
-        responseInstructions: ts.InterfaceDeclaration[],
-        requestInstructions: ts.InterfaceDeclaration[],
-      } = {
-        responseInstructions: [],
-        requestInstructions: [],
+      const methodInterfaceName = pascalCase(httpMethod);
+      const methodInterfaceMembers = {
+        request: [] as ts.TypeElement[],
+        response: [] as ts.TypeElement[],
       };
 
-      for (let r in method.responses) {
-        const response = method.responses[r]!;
-        const { content } = response;
-        const interfaceName = `${methodBaseInterfaceName}Response${r}`;
+      const { responses } = method;
 
-        const subInstructions = [];
+      if (responses) {
+        for (const res in responses) {
+          const response = responses[res]!;
 
-        for (let c in content) {
-          const schema = content[c]!.schema;
-          const { properties } = schema;
+          const responseInterfaceName = pascalCase(`${baseInterfaceName}/${methodInterfaceName}/Response/${res}`);
+          const responseInterfaceMembers = [];
 
-          for (let p in properties) {
-            const prop = properties[p];
+          const { content } = response;
+          const json = content['application/json'];
 
-            subInstructions.push(ts.factory.createPropertySignature(
-              undefined,
-              ts.factory.createIdentifier(p),
-              undefined,
-              ts.factory.createKeywordTypeNode(swaggerTypeToTsType(prop!.type)),
-            ));
+          if (!json) {
+            console.warn('unsupported type');
+            continue;
           }
+
+          const { schema: { properties, type: t } } = json;
+
+          const output = createTypes(t, responseInterfaceName, instructions, properties);
+
+          if (Array.isArray(output)) {
+            responseInterfaceMembers.push(...output);
+          } else {
+            responseInterfaceMembers.push(output);
+          }
+
+          methodInterfaceMembers.response.push(...responseInterfaceMembers)
         }
+      };
 
-        methodInstructions.responseInstructions.push(ts.factory.createInterfaceDeclaration(
-          undefined,
-          ts.factory.createIdentifier(interfaceName),
-          undefined,
-          undefined,
-          subInstructions,
-        ));
-      }
-
-      instructions.push(ts.factory.createTypeAliasDeclaration(
+      const methodInterface = ts.factory.createInterfaceDeclaration(
         undefined,
-        ts.factory.createIdentifier(`${baseInterfaceName}Responses`),
+        methodInterfaceName,
         undefined,
-        ts.factory.createUnionTypeNode(methodInstructions.responseInstructions.map(i => ts.factory.createTypeReferenceNode(i.name as ts.Identifier))),
-      ));
-
-      instructions.push(...methodInstructions.responseInstructions);
-      instructions.push(...methodInstructions.requestInstructions);
- 
-      const members: ts.TypeElement[] = [];
-
-      if (methodInstructions.requestInstructions.length > 0) {
-        members.push(ts.factory.createPropertySignature(
-          undefined,
-          ts.factory.createIdentifier('request'),
-          undefined,
-          ts.factory.createTypeReferenceNode(`${baseInterfaceName}Request${mStr}`),
-        ));
-      }
-
-      if (methodInstructions.responseInstructions.length > 0) {
-        members.push(ts.factory.createPropertySignature(
-          undefined,
-          ts.factory.createIdentifier('responses'),
-          undefined,
-          ts.factory.createTypeReferenceNode(`${baseInterfaceName}Responses`),
-        ));
-      }
-
-      baseInterfacePropsInstructions.push(ts.factory.createPropertySignature(
         undefined,
-        ts.factory.createIdentifier(m),
+        methodInterfaceMembers.response,
+      );
+
+      pathInterfaceMembers.push(ts.factory.createPropertySignature(
         undefined,
-        ts.factory.createTypeLiteralNode(members)
+        ts.factory.createIdentifier("response"),
+        undefined,
+        ts.factory.createTypeReferenceNode(methodInterface.name),
       ));
     }
 
-    instructions.push(ts.factory.createInterfaceDeclaration(
+    const pathInterface = ts.factory.createInterfaceDeclaration(
       undefined,
-      ts.factory.createIdentifier(baseInterfaceName),
+      pathInterfaceName,
       undefined,
       undefined,
-      baseInterfacePropsInstructions,
-    ));
-  }
+      pathInterfaceMembers
+    );
 
-  const sourceFile = ts.factory.createSourceFile(
-    instructions,
-    ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
-    ts.NodeFlags.None,
-  );
-  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-  console.log(printer.printFile(sourceFile));
-  fs.writeFileSync('output.d.ts', printer.printFile(sourceFile));
+    
+  }
 })();
