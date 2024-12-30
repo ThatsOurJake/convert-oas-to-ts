@@ -13,7 +13,7 @@ export interface Schema {
   required?: string[];
 }
 
-export type contentTypes = 'application/json';
+export type contentTypes = 'application/json' | '*/*';
 
 export type content = {
   [key in contentTypes]: {
@@ -101,9 +101,9 @@ export interface ParsedSpec {
   paths: Record<string, OpenApiPath>;
 }
 
-const parseOpenApiSpec = (fileName: string): ParsedSpec => {
+const parseOpenApiSpec = (specPath: string): ParsedSpec => {
   // TODO replace with passed in path location
-  const specPath = path.join(fileName);
+  // const specPath = path.join(fileName);
   const contents = Buffer.from(readFileSync(specPath)).toString('utf-8');
   const swagger = parseYaml(contents) as OpenApiSpec;
 
@@ -123,13 +123,18 @@ const parseOpenApiSpec = (fileName: string): ParsedSpec => {
     Object.entries(value).forEach(([_, _method]) => {
       const method = _method as JointReqRes;
 
-      // TODO: Add support for other methods
       if (method.requestBody) {
-        method.requestBody.content['application/json'].schema = recursiveResolveRef(method.requestBody.content['application/json'].schema, parsedSchemaComponents);
+        for (const [key, value] of Object.entries(method.requestBody.content)) {
+          method.requestBody.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents);
+        }
       }
 
       Object.entries(method.responses).forEach(([_, response]) => {
-        response.content['application/json'].schema = recursiveResolveRef(response.content['application/json'].schema, parsedSchemaComponents);
+        if (response.content) {
+          for (const [key, value] of Object.entries(response.content)) {
+            response.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents
+          )};
+        }
       });
     });
   });

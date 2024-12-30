@@ -155,7 +155,15 @@ const createTypes = (spec: ParsedSpec) => {
               const res = parseContentSchema(content, statusInterfaceName, instructions);
 
               if (!res) {
-                throw new Error('Failed to parse response body');
+                const unknownType = ts.factory.createTypeAliasDeclaration(
+                  undefined,
+                  ts.factory.createIdentifier(statusInterfaceName),
+                  undefined,
+                  ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword),
+                )
+                instructions.push(unknownType);
+                responseIdentifiers.push(ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(statusInterfaceName), undefined));
+                continue;
               }
 
               const { interfaces: contentInterfaces } = res;

@@ -1,5 +1,5 @@
 {
-  "extends": "@sky-uk/dt-ts-configs/tsconfig.node.strict.json",
+  "extends": "@sky-uk/dt-ts-configs/tsconfig.lib.strict.json",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
