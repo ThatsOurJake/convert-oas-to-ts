@@ -37,11 +37,21 @@ const MAP = {
   ),
 }
 
+const RESERVED_TYPESCRIPT_CHARACTERS = ['?', '!', '[]', '<', '>'];
+
 const createInterface = (obj: Record<string, unknown>, objectName: string, interfaces: ts.InterfaceDeclaration[]) => {
   const instructions: ts.PropertySignature[] = [];
 
-  for (let key of Object.keys(obj)) {
-    const value = obj[key]!;
+  for (let _key of Object.keys(obj)) {
+    const value = obj[_key]!;
+
+    if (ts.isPropertySignature(value as ts.Node)) {
+      instructions.push(value as ts.PropertySignature);
+      continue;
+    }
+
+    const objectNameContainsReservedCharacters = RESERVED_TYPESCRIPT_CHARACTERS.some((char) => _key.includes(char));
+    const key = objectNameContainsReservedCharacters ? `"${_key}"` : _key;
 
     switch (typeof value) {
       case "string":
@@ -55,7 +65,7 @@ const createInterface = (obj: Record<string, unknown>, objectName: string, inter
         instructions.push(MAP.boolean(key));
         break;
       case "object":
-        const childInterfaceName = pascalCase(`${objectName} ${key}`);
+        const childInterfaceName = pascalCase(`${objectName} ${_key}`);
         const childInterface = createInterface(value as Record<string, unknown>, childInterfaceName, interfaces);
         interfaces.push(childInterface);
         instructions.push(MAP.object(key, childInterface.name));

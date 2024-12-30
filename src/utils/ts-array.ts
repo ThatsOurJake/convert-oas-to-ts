@@ -10,7 +10,7 @@ const MAP = {
   default: () => ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword),
 };
 
-const tsArray = (arrName: string, arr: Array<unknown>) => {
+const tsArray = (arrName: string, arr: Array<unknown>, prefix: string = '') => {
   const types = new Set<string>();
 
   const keywordTypes: ts.TypeNode[] = [];
@@ -29,7 +29,9 @@ const tsArray = (arrName: string, arr: Array<unknown>) => {
     t === "object" ? types.add(valueHash) : types.add(t);
 
     if (t === "object") {
-      const childInterfaceName = pascalCase(`${arrName} Arr${index}`);
+      const propName = prefix ? `${prefix}${pascalCase(arrName)}` : pascalCase(arrName);
+      const interfaceName = arr.length > 1 ? `${propName} Arr${index}` : `${propName}Arr`;
+      const childInterfaceName = pascalCase(interfaceName);
       const childInterface = createInterface(
         value as Record<string, unknown>,
         childInterfaceName,

@@ -26,8 +26,8 @@ describe('TS Array', () => {
 
     const output = tsArray('unitTest', arr);
 
-    expect(propertyToString(output.property)).toEqual(`unitTest: UnitTestArr0[];`);
-    expect(instructionsToString(output.interfaces)).toEqual(`interface UnitTestArr0 { test: string; test2: number; }`);
+    expect(propertyToString(output.property)).toEqual(`unitTest: UnitTestArr[];`);
+    expect(instructionsToString(output.interfaces)).toEqual(`interface UnitTestArr { test: string; test2: number; }`);
   });
 
   it('returns correct for multi object array', () => {
