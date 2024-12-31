@@ -4,35 +4,24 @@ import parseOpenApiSpec from './utils/parse-open-api-spec';
 import createTypes from './create-types';
 import { writeFileSync } from 'node:fs';
 
-// (async () => {
-//   const res = parseOpenApiSpec('spec.yaml');
+(async () => {
+  const res = parseOpenApiSpec({
+    filePath: 'spec.yaml',
+  });
 
-//   const { info: { title, version }} = res;
-//   const fileName = `${title}-${version}.d.ts`;
+  const { info: { title, version }} = res;
+  const fileName = `${title}-${version}.d.ts`;
 
-//   const instructions = createTypes(res);
-
-//   const printer = ts.createPrinter({
-//     newLine: ts.NewLineKind.LineFeed,
-//   });
-
-//   const result = printer.printList(ts.ListFormat.MultiLine, ts.factory.createNodeArray(instructions), ts.createSourceFile(fileName, '', ts.ScriptTarget.Latest));
-
-//   // console.log(result);
-//   writeFileSync(fileName, result);
-// })();
-
-const main = (fileLocation: string): string => {
-  const res = parseOpenApiSpec(fileLocation);
   const instructions = createTypes(res);
 
   const printer = ts.createPrinter({
     newLine: ts.NewLineKind.LineFeed,
   });
 
-  const result = printer.printList(ts.ListFormat.MultiLine, ts.factory.createNodeArray(instructions), ts.createSourceFile('', '', ts.ScriptTarget.Latest));
+  const result = printer.printList(ts.ListFormat.MultiLine, ts.factory.createNodeArray(instructions), ts.createSourceFile(fileName, '', ts.ScriptTarget.Latest),);
 
-  return result;
-};
+  console.log(result);
+  // writeFileSync(fileName, result);
+})();
 
-export default main;
+export default () => {};

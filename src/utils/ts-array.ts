@@ -1,95 +1,104 @@
 import ts from "typescript";
 
 import pascalCase from "./pascal-case";
-import createInterface from "./create-interface";
+import { Schema } from "./parse-open-api-spec";
+import tsObject from "./ts-object";
 
-const MAP = {
-  string: () => ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
-  number: () => ts.factory.createKeywordTypeNode(ts.SyntaxKind.NumberKeyword),
-  boolean: () => ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword),
-  default: () => ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword),
+const createUnknownType = (propertyName: string) => {
+  return [
+    ts.factory.createTypeAliasDeclaration(
+      undefined,
+      ts.factory.createIdentifier(propertyName),
+      undefined,
+      ts.factory.createArrayTypeNode(
+        ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword)
+      )
+    ),
+  ];
 };
 
-const tsArray = (arrName: string, arr: Array<unknown>, prefix: string = '') => {
-  const types = new Set<string>();
+const tsArray = (items: Schema, propertyName: string) => {
+  const arrRefName = pascalCase(propertyName);
 
-  const keywordTypes: ts.TypeNode[] = [];
-  const interfaces: ts.InterfaceDeclaration[] = [];
-  let index = 0;
+  if (items.$ref) {
+    const ref = items.$ref.split("/").pop()!;
+    const refName = pascalCase(ref);
 
-  for (let value of arr) {
-    const t = typeof value;
-
-    const valueHash = JSON.stringify(value);
-
-    if (types.has(t) || types.has(valueHash)) {
-      continue;
-    }
-
-    t === "object" ? types.add(valueHash) : types.add(t);
-
-    if (t === "object") {
-      const propName = prefix ? `${prefix}${pascalCase(arrName)}` : pascalCase(arrName);
-      const interfaceName = arr.length > 1 ? `${propName} Arr${index}` : `${propName}Arr`;
-      const childInterfaceName = pascalCase(interfaceName);
-      const childInterface = createInterface(
-        value as Record<string, unknown>,
-        childInterfaceName,
-        interfaces
-      );
-      interfaces.push(childInterface);
-      keywordTypes.push(
-        ts.factory.createTypeReferenceNode(childInterface.name)
-      );
-      index++;
-      continue;
-    }
-
-    switch (t) {
-      case "string":
-        keywordTypes.push(MAP.string());
-        break;
-      case "bigint":
-      case "number":
-        keywordTypes.push(MAP.number());
-        break;
-      case "boolean":
-        keywordTypes.push(MAP.boolean());
-        break;
-      default:
-        keywordTypes.push(MAP.default());
-        break;
-    }
-  }
-
-  if (keywordTypes.length === 0) {
-    return {
-      interfaces,
-      property: ts.factory.createPropertySignature(
+    return [
+      ts.factory.createTypeAliasDeclaration(
         undefined,
-        ts.factory.createIdentifier(arrName),
+        ts.factory.createIdentifier(arrRefName),
         undefined,
-        ts.factory.createArrayTypeNode(MAP.default())
-      ),
-    };
-  }
-
-  const propType =
-    keywordTypes.length > 1
-      ? ts.factory.createParenthesizedType(
-          ts.factory.createUnionTypeNode(keywordTypes)
+        ts.factory.createArrayTypeNode(
+          ts.factory.createTypeReferenceNode(
+            ts.factory.createIdentifier(refName),
+            undefined
+          ),
         )
-      : keywordTypes[0]!;
+      ),
+    ];
+  }
 
-  return {
-    interfaces,
-    property: ts.factory.createPropertySignature(
+  if (items.type === "string") {
+    const { enum: enumValues } = items;
+
+    if (!enumValues) {
+      return [
+        ts.factory.createTypeAliasDeclaration(
+          undefined,
+          ts.factory.createIdentifier(arrRefName),
+          undefined,
+          ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+        ),
+      ];
+    }
+
+    return [
+      ts.factory.createTypeAliasDeclaration(
+        undefined,
+        ts.factory.createIdentifier(arrRefName),
+        undefined,
+        ts.factory.createUnionTypeNode(
+          enumValues.map((value) =>
+            ts.factory.createLiteralTypeNode(
+              ts.factory.createStringLiteral(value)
+            )
+          )
+        )
+      ),
+    ];
+  }
+
+  if (items.type === "object") {
+    const { properties } = items;
+
+    if (!properties) {
+      return createUnknownType(arrRefName);
+    }
+
+    const interfaces = tsObject(properties!, pascalCase(`${propertyName}-item`));
+    const rootInterface = interfaces[interfaces.length - 1]!;
+
+    const arrayType = ts.factory.createTypeAliasDeclaration(
       undefined,
-      ts.factory.createIdentifier(arrName),
+      ts.factory.createIdentifier(arrRefName),
       undefined,
-      ts.factory.createArrayTypeNode(propType)
-    ),
-  };
+      ts.factory.createArrayTypeNode(
+        ts.factory.createTypeReferenceNode(
+          rootInterface.name as ts.Identifier,
+          undefined
+        )
+      )
+    );
+
+    return [...interfaces, arrayType];
+  }
+
+  if (items.type === "array") {
+    return tsArray(items.items!, propertyName);
+  }
+
+  return createUnknownType(arrRefName);
 };
 
 export default tsArray;

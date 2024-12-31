@@ -1,8 +1,8 @@
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 
-export type swaggerTypes = 'object' | 'array' | 'string' | 'number' | 'boolean';
+export type swaggerTypes = 'object' | 'array' | 'string' | 'number' | 'boolean' | 'integer';
 
 export interface Schema {
   type: swaggerTypes;
@@ -11,6 +11,7 @@ export interface Schema {
   items?: Schema;
   properties?: Record<string, Schema>;
   required?: string[];
+  enum?: string[];
 }
 
 export type contentTypes = 'application/json' | '*/*';
@@ -101,11 +102,30 @@ export interface ParsedSpec {
   paths: Record<string, OpenApiPath>;
 }
 
-const parseOpenApiSpec = (specPath: string): ParsedSpec => {
-  // TODO replace with passed in path location
-  // const specPath = path.join(fileName);
-  const contents = Buffer.from(readFileSync(specPath)).toString('utf-8');
-  const swagger = parseYaml(contents) as OpenApiSpec;
+interface Options {
+  contents? : string;
+  filePath?: string;
+  shallow?: boolean;
+};
+
+const parseOpenApiSpec = (options: Options): ParsedSpec => {
+  const { contents, filePath, shallow = true } = options;
+
+  if (!contents && !filePath) {
+    throw new Error('Either contents or filePath must be provided');
+  }
+
+  let fileContents: string | undefined = contents;
+
+  if (!fileContents && filePath) {
+    if (!existsSync(filePath)) {
+      throw new Error(`File not found at ${filePath}`);
+    }
+
+    fileContents = readFileSync(filePath, 'utf8');
+  }
+
+  const swagger = parseYaml(fileContents!) as OpenApiSpec;
 
   const parsedSchemaComponents: Record<string, Schema> = {};
 
@@ -113,31 +133,34 @@ const parseOpenApiSpec = (specPath: string): ParsedSpec => {
     parsedSchemaComponents[key] = value;
   });
 
-  Object.entries(parsedSchemaComponents).forEach(([_, value]) => {
-    recursiveResolveRef(value, parsedSchemaComponents);
-  });
-
   const paths = swagger.paths;
 
-  Object.entries(paths).forEach(([_, value]) => {
-    Object.entries(value).forEach(([_, _method]) => {
-      const method = _method as JointReqRes;
-
-      if (method.requestBody) {
-        for (const [key, value] of Object.entries(method.requestBody.content)) {
-          method.requestBody.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents);
+  if (!shallow) {
+    Object.entries(parsedSchemaComponents).forEach(([_, value]) => {
+      recursiveResolveRef(value, parsedSchemaComponents);
+    });
+  
+  
+    Object.entries(paths).forEach(([_, value]) => {
+      Object.entries(value).forEach(([_, _method]) => {
+        const method = _method as JointReqRes;
+  
+        if (method.requestBody) {
+          for (const [key, value] of Object.entries(method.requestBody.content)) {
+            method.requestBody.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents);
+          }
         }
-      }
-
-      Object.entries(method.responses).forEach(([_, response]) => {
-        if (response.content) {
-          for (const [key, value] of Object.entries(response.content)) {
-            response.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents
-          )};
-        }
+  
+        Object.entries(method.responses).forEach(([_, response]) => {
+          if (response.content) {
+            for (const [key, value] of Object.entries(response.content)) {
+              response.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents
+            )};
+          }
+        });
       });
     });
-  });
+  }
 
   return {
     info: swagger.info,
