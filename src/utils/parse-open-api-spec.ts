@@ -2,10 +2,10 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { parse as parseYaml } from "yaml";
 
-export type swaggerTypes = 'object' | 'array' | 'string' | 'number' | 'boolean' | 'integer';
+export type SwaggerTypes = 'object' | 'array' | 'string' | 'number' | 'boolean' | 'integer';
 
 export interface Schema {
-  type: swaggerTypes;
+  type: SwaggerTypes;
   example?: any;
   $ref?: string;
   items?: Schema;
@@ -14,10 +14,10 @@ export interface Schema {
   enum?: string[];
 }
 
-export type contentTypes = 'application/json' | '*/*';
+export type ContentTypes = 'application/json' | '*/*';
 
-export type content = {
-  [key in contentTypes]: {
+export type Content = {
+  [key in ContentTypes]: {
     schema: Schema;
   }
 }
@@ -28,14 +28,14 @@ export interface BaseReqRes {
   responses: {
     [key: string]: {
       description: string;
-      content: content
+      content: Content
     }
   }
 }
 
 export interface Post extends BaseReqRes {
   requestBody: {
-    content: content;
+    content: Content;
   }
 }
 
@@ -48,7 +48,7 @@ export interface OpenApiPath {
   delete?: BaseReqRes;
 }
 
-export type methods = keyof OpenApiPath;
+export type Methods = keyof OpenApiPath;
 
 interface OpenApiSpec {
   openapi: number;
@@ -63,16 +63,14 @@ interface OpenApiSpec {
   paths: Record<string, OpenApiPath>;
 }
 
-const recursiveResolveRef = (schema: Schema, parsedSchemaComponents: Record<string, Schema>) => {
+const recursiveResolveRef = (schema: Schema, parsedSchemaComponents: Record<string, Schema>): Schema => {
   if (schema.$ref) {
     const refKey = schema.$ref.split('/').pop();
     if (refKey) {
       const refSchema = parsedSchemaComponents[refKey];
-
       if (!refSchema) {
         throw new Error(`Schema with key ${refKey} not found`);
       }
-
       return recursiveResolveRef(refSchema, parsedSchemaComponents);
     }
   }
@@ -103,10 +101,10 @@ export interface ParsedSpec {
 }
 
 interface Options {
-  contents? : string;
+  contents?: string;
   filePath?: string;
   shallow?: boolean;
-};
+}
 
 const parseOpenApiSpec = (options: Options): ParsedSpec => {
   const { contents, filePath, shallow = true } = options;
@@ -121,41 +119,33 @@ const parseOpenApiSpec = (options: Options): ParsedSpec => {
     if (!existsSync(filePath)) {
       throw new Error(`File not found at ${filePath}`);
     }
-
     fileContents = readFileSync(filePath, 'utf8');
   }
 
   const swagger = parseYaml(fileContents!) as OpenApiSpec;
-
-  const parsedSchemaComponents: Record<string, Schema> = {};
-
-  Object.entries(swagger.components.schemas).forEach(([key, value]) => {
-    parsedSchemaComponents[key] = value;
-  });
-
+  const parsedSchemaComponents: Record<string, Schema> = { ...swagger.components.schemas };
   const paths = swagger.paths;
 
   if (!shallow) {
-    Object.entries(parsedSchemaComponents).forEach(([_, value]) => {
+    Object.values(parsedSchemaComponents).forEach(value => {
       recursiveResolveRef(value, parsedSchemaComponents);
     });
-  
-  
-    Object.entries(paths).forEach(([_, value]) => {
-      Object.entries(value).forEach(([_, _method]) => {
-        const method = _method as JointReqRes;
-  
-        if (method.requestBody) {
-          for (const [key, value] of Object.entries(method.requestBody.content)) {
-            method.requestBody.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents);
-          }
+
+    Object.values(paths).forEach(path => {
+      Object.values(path).forEach(method => {
+        const jointMethod = method as JointReqRes;
+
+        if (jointMethod.requestBody) {
+          Object.entries(jointMethod.requestBody.content).forEach(([key, value]) => {
+            jointMethod.requestBody.content[key as ContentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents);
+          });
         }
-  
-        Object.entries(method.responses).forEach(([_, response]) => {
+
+        Object.values(jointMethod.responses).forEach(response => {
           if (response.content) {
-            for (const [key, value] of Object.entries(response.content)) {
-              response.content[key as contentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents
-            )};
+            Object.entries(response.content).forEach(([key, value]) => {
+              response.content[key as ContentTypes].schema = recursiveResolveRef(value.schema, parsedSchemaComponents);
+            });
           }
         });
       });
