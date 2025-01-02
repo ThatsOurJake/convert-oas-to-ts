@@ -1,8 +1,8 @@
 import * as ts from "typescript";
 import {
-  contentTypes,
+  ContentTypes,
   JointReqRes,
-  methods,
+  Methods,
   ParsedSpec,
   Schema,
 } from "./utils/parse-open-api-spec";
@@ -83,7 +83,7 @@ const processPaths = (
   for (const method in methods) {
     if (Object.prototype.hasOwnProperty.call(methods, method)) {
       const methodInterfaceName = pascalCase(`${urlInterfaceName}-${method}`);
-      const methodProperties = processMethod(methods[method as methods]!, methodInterfaceName, instructions, sharedInterfaces);
+      const methodProperties = processMethod(methods[method as Methods]!, methodInterfaceName, instructions, sharedInterfaces);
 
       urlInterfacePropertyMembers.push(
         ts.factory.createPropertySignature(
@@ -123,7 +123,7 @@ const processMethod = (
 };
 
 const processRequestBody = (
-  requestBody: any,
+  requestBody: JointReqRes["requestBody"],
   methodInterfaceName: string,
   instructions: ts.Node[],
   sharedInterfaces: Map<string, ts.InterfaceDeclaration>
@@ -148,12 +148,18 @@ const processRequestBody = (
 
     for (const contentType in content) {
       if (Object.prototype.hasOwnProperty.call(content, contentType)) {
-        const { schema } = content[contentType as contentTypes]!;
+        const { schema } = content[contentType as ContentTypes]!;
         const schemaName = schema.$ref ? pascalCase(schema.$ref.split("/").pop()!) : requestBodyInterfaceName;
-        const schemaIdentifier = ts.factory.createIdentifier(schemaName);
+        let schemaIdentifier = ts.factory.createIdentifier(schemaName);
 
         if (!sharedInterfaces.has(schemaName)) {
           const componentInterfaces = processSchema(schemaName, schema);
+          const lastItem = componentInterfaces[componentInterfaces.length - 1];
+
+          if (lastItem && ts.isTypeAliasDeclaration(lastItem)) {
+            schemaIdentifier = lastItem.name;
+          }
+
           instructions.push(...componentInterfaces);
         }
 
@@ -197,7 +203,7 @@ const processResponses = (
         statusCodeMembers.push(
           ts.factory.createPropertySignature(
             undefined,
-            ts.factory.createNumericLiteral(statusCode),
+            ts.factory.createStringLiteral(statusCode),
             undefined,
             ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword)
           )
@@ -205,19 +211,21 @@ const processResponses = (
       } else {
         for (const contentType in content) {
           if (Object.prototype.hasOwnProperty.call(content, contentType)) {
-            const { schema } = content[contentType as contentTypes]!;
+            const { schema } = content[contentType as ContentTypes]!;
             const schemaName = schema.$ref ? pascalCase(schema.$ref.split("/").pop()!) : responseInterfaceName;
-            const schemaIdentifier = ts.factory.createIdentifier(schemaName);
+            let schemaIdentifier = ts.factory.createIdentifier(schemaName);
 
             if (!sharedInterfaces.has(schemaName)) {
               const componentInterfaces = processSchema(schemaName, schema);
+              const rootType = componentInterfaces[componentInterfaces.length - 1]
+              schemaIdentifier = rootType ? (rootType as ts.InterfaceDeclaration).name! : schemaIdentifier;
               instructions.push(...componentInterfaces);
             }
 
             statusCodeMembers.push(
               ts.factory.createPropertySignature(
                 undefined,
-                ts.factory.createNumericLiteral(statusCode),
+                ts.factory.createStringLiteral(statusCode),
                 undefined,
                 ts.factory.createTypeReferenceNode(schemaIdentifier)
               )

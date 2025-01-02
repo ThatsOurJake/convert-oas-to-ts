@@ -1,6 +1,7 @@
 import ts, { Identifier } from "typescript";
 import pascalCase from "./pascal-case";
 import { Schema } from "./parse-open-api-spec";
+import tsArray from "./ts-array";
 
 const createPropertySignature = (propName: string, typeNode: ts.TypeNode) => 
   ts.factory.createPropertySignature(
@@ -24,7 +25,11 @@ const RESERVED_TYPESCRIPT_CHARACTERS = ['?', '!', '[]', '<', '>'];
 const createInterface = (properties: Record<string, Schema>, objectName: string, interfaces: ts.InterfaceDeclaration[]): ts.InterfaceDeclaration => {
   const instructions: ts.PropertySignature[] = [];
 
-  for (const _key of Object.keys(properties)) {
+  if (!properties) {
+    instructions.push(MAP.default(objectName));
+  }
+
+  for (const _key of Object.keys(properties || {})) {
     const value = properties[_key]!;
     const objectNameContainsReservedCharacters = RESERVED_TYPESCRIPT_CHARACTERS.some((char) => _key.includes(char));
     const key = objectNameContainsReservedCharacters ? `"${_key}"` : _key;
@@ -53,6 +58,11 @@ const createInterface = (properties: Record<string, Schema>, objectName: string,
         const childInterface = createInterface(value.properties!, childInterfaceName, interfaces);
         interfaces.push(childInterface);
         instructions.push(MAP.object(key, childInterface.name));
+        break;
+      case "array":
+        const arr = tsArray(value.items!, `${objectName} ${_key}`);
+        instructions.push(MAP.object(key, arr[0]!.name));
+        interfaces.push(arr[0] as ts.InterfaceDeclaration);
         break;
       default:
         instructions.push(MAP.default(key));

@@ -37,7 +37,7 @@ const createUnionTypeNode = (enumValues: string[]) =>
   );
 
 const tsArray = (items: Schema, propertyName: string) => {
-  const arrRefName = pascalCase(propertyName);
+  const arrRefName = pascalCase(`${propertyName}-items`);
 
   if (items.$ref) {
     const refName = pascalCase(items.$ref.split("/").pop()!);
@@ -59,9 +59,9 @@ const tsArray = (items: Schema, propertyName: string) => {
     return [
       createTypeAliasDeclaration(
         arrRefName,
-        enumValues
-          ? createUnionTypeNode(enumValues)
-          : ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+        createArrayTypeNode(
+          enumValues ? createUnionTypeNode(enumValues) : ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
+        )
       ),
     ];
   }
