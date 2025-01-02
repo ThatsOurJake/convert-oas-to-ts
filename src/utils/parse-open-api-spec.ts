@@ -100,7 +100,7 @@ export interface ParsedSpec {
   paths: Record<string, OpenApiPath>;
 }
 
-interface Options {
+export interface Options {
   contents?: string;
   filePath?: string;
   shallow?: boolean;

@@ -1,5 +1,6 @@
 {
-  "name": "open-api-ts",
+  "name": "convert-oas-to-ts",
+  "displayName": "Convert OpenAPI Spec to TypeScript",
   "version": "1.0.0",
   "main": "dist/index.js",
   "license": "MIT",
@@ -16,7 +17,7 @@
     "tsx": "^4.19.2"
   },
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "build": "tsc"
+    "dev": "tsx src/dev.ts",
+    "build": "rm -rf dist && tsc"
   }
 }
