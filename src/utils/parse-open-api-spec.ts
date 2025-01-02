@@ -96,7 +96,7 @@ export interface ParsedSpec {
   }
   components: {
     schemas: Record<string, Schema>;
-  }
+  } | null;
   paths: Record<string, OpenApiPath>;
 }
 
@@ -152,13 +152,20 @@ const parseOpenApiSpec = (options: Options): ParsedSpec => {
     });
   }
 
-  return {
+  const output: ParsedSpec = {
     info: swagger.info,
     components: {
-      schemas: parsedSchemaComponents
+      schemas: parsedSchemaComponents,
     },
     paths,
   };
+
+  if (!shallow) {
+    // We remove the components if we are not shallow as the paths will have the resolved schemas
+    output.components = null;
+  }
+
+  return output;
 };
 
 export default parseOpenApiSpec;

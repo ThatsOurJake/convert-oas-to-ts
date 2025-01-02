@@ -17,6 +17,7 @@ const MAP = {
   'boolean': (propName: string) => createPropertySignature(propName, ts.factory.createKeywordTypeNode(ts.SyntaxKind.BooleanKeyword)),
   'object': (propName: string, interfaceName: Identifier) => createPropertySignature(propName, ts.factory.createTypeReferenceNode(interfaceName, undefined)),
   'ref': (propName: string, interfaceName: string) => createPropertySignature(propName, ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(interfaceName), undefined)),
+  'union': (propName: string, types: ts.TypeNode[]) => createPropertySignature(propName, ts.factory.createUnionTypeNode(types)),
   'default': (propName: string) => createPropertySignature(propName, ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword)),
 };
 
@@ -60,9 +61,19 @@ const createInterface = (properties: Record<string, Schema>, objectName: string,
         instructions.push(MAP.object(key, childInterface.name));
         break;
       case "array":
-        const arr = tsArray(value.items!, `${objectName} ${_key}`);
-        instructions.push(MAP.object(key, arr[0]!.name));
-        interfaces.push(arr[0] as ts.InterfaceDeclaration);
+        const arr = tsArray(value.items!, key);
+
+        const arrInterfaces = arr.filter((node) => ts.isInterfaceDeclaration(node));
+        interfaces.push(...arrInterfaces);
+
+        const property = ts.factory.createPropertySignature(
+          undefined,
+          ts.factory.createIdentifier(key),
+          undefined,
+          arr.filter((node) => ts.isTypeNode(node))[0],
+        );
+
+        instructions.push(property);
         break;
       default:
         instructions.push(MAP.default(key));

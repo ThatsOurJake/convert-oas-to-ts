@@ -213,21 +213,38 @@ const processResponses = (
           if (Object.prototype.hasOwnProperty.call(content, contentType)) {
             const { schema } = content[contentType as ContentTypes]!;
             const schemaName = schema.$ref ? pascalCase(schema.$ref.split("/").pop()!) : responseInterfaceName;
-            let schemaIdentifier = ts.factory.createIdentifier(schemaName);
+            const possibleTypes: ts.TypeNode[] = [];
 
             if (!sharedInterfaces.has(schemaName)) {
               const componentInterfaces = processSchema(schemaName, schema);
-              const rootType = componentInterfaces[componentInterfaces.length - 1]
-              schemaIdentifier = rootType ? (rootType as ts.InterfaceDeclaration).name! : schemaIdentifier;
-              instructions.push(...componentInterfaces);
+
+              const interfaces = componentInterfaces.filter((node) => ts.isInterfaceDeclaration(node));
+              instructions.push(...interfaces);
+
+              const typeNode = componentInterfaces.find((node) => ts.isTypeNode(node));
+
+              if (typeNode) {
+                possibleTypes.push(typeNode);
+              } else {
+                const lastItem = componentInterfaces[componentInterfaces.length - 1];
+
+                if (lastItem && ts.isInterfaceDeclaration(lastItem)) {
+                  possibleTypes.push(ts.factory.createTypeReferenceNode(lastItem.name));
+                }
+              }
+            } else {
+              const sharedInterface = sharedInterfaces.get(schemaName)!;
+              possibleTypes.push(ts.factory.createTypeReferenceNode(sharedInterface.name));
             }
+
+            const propertyType = possibleTypes.length > 1 ? ts.factory.createUnionTypeNode(possibleTypes) : possibleTypes[0];
 
             statusCodeMembers.push(
               ts.factory.createPropertySignature(
                 undefined,
                 ts.factory.createStringLiteral(statusCode),
                 undefined,
-                ts.factory.createTypeReferenceNode(schemaIdentifier)
+                propertyType,
               )
             );
           }

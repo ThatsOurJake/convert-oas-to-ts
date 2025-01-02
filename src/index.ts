@@ -26,7 +26,6 @@ import pascalCase from './utils/pascal-case';
 interface Options {
   filePath?: string;
   contents?: string;
-  shallow?: boolean;
 }
 
 export interface OpenApiTsResult {
