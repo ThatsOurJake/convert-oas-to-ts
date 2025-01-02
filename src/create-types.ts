@@ -9,6 +9,7 @@ import {
 import tsObject from "./utils/ts-object";
 import pascalCase from "./utils/pascal-case";
 import tsArray from "./utils/ts-array";
+import { sanitiseInterfaceName, sanitisePropKey } from "./utils/sanitise-keys";
 
 const processSchema = (componentKey: string, component: Schema): ts.Node[] => {
   const propertyName = pascalCase(componentKey);
@@ -17,7 +18,7 @@ const processSchema = (componentKey: string, component: Schema): ts.Node[] => {
     case "object":
       return tsObject(component.properties!, propertyName);
     case "string":
-      return processStringSchema(componentKey, component.enum);
+      return processStringSchema(component.enum);
     case "array":
       return tsArray(component.items!, componentKey);
     default:
@@ -25,28 +26,18 @@ const processSchema = (componentKey: string, component: Schema): ts.Node[] => {
   }
 };
 
-const processStringSchema = (componentKey: string, enumValues?: string[]): ts.Node[] => {
+const processStringSchema = (enumValues?: string[]): ts.Node[] => {
   if (!enumValues) {
     return [
-      ts.factory.createTypeAliasDeclaration(
-        undefined,
-        ts.factory.createIdentifier(componentKey),
-        undefined,
-        ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
-      ),
+      ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword)
     ];
   } else {
     return [
-      ts.factory.createTypeAliasDeclaration(
-        undefined,
-        ts.factory.createIdentifier(componentKey),
-        undefined,
-        ts.factory.createUnionTypeNode(
-          enumValues.map((value) =>
-            ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(value))
-          )
+      ts.factory.createUnionTypeNode(
+        enumValues.map((value) =>
+          ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(value))
         )
-      ),
+      )
     ];
   }
 };
@@ -97,7 +88,7 @@ const processPaths = (
       instructions.push(
         ts.factory.createInterfaceDeclaration(
           undefined,
-          ts.factory.createIdentifier(methodInterfaceName),
+          ts.factory.createIdentifier(sanitiseInterfaceName(methodInterfaceName)),
           undefined,
           undefined,
           methodProperties
@@ -144,46 +135,55 @@ const processRequestBody = (
       ),
     ];
   } else {
-    const possibleTypes: ts.Identifier[] = [];
+    const possibleTypes: Map<string, ts.TypeNode> = new Map();
 
     for (const contentType in content) {
       if (Object.prototype.hasOwnProperty.call(content, contentType)) {
         const { schema } = content[contentType as ContentTypes]!;
         const schemaName = schema.$ref ? pascalCase(schema.$ref.split("/").pop()!) : requestBodyInterfaceName;
-        let schemaIdentifier = ts.factory.createIdentifier(schemaName);
 
         if (!sharedInterfaces.has(schemaName)) {
           const componentInterfaces = processSchema(schemaName, schema);
-          const lastItem = componentInterfaces[componentInterfaces.length - 1];
 
-          if (lastItem && ts.isTypeAliasDeclaration(lastItem)) {
-            schemaIdentifier = lastItem.name;
+          const interfaces = componentInterfaces.filter((node) => ts.isInterfaceDeclaration(node));
+          instructions.push(...interfaces);
+
+          const typeNode = componentInterfaces.find((node) => ts.isTypeNode(node));
+
+          if (typeNode) {
+            const name = ts.isTypeAliasDeclaration(typeNode) ? typeNode.name : ts.factory.createIdentifier(schemaName);
+            possibleTypes.set(name.text, typeNode);
+          } else if (!typeNode) {
+            const lastItem = componentInterfaces[componentInterfaces.length - 1];
+
+            if (lastItem && ts.isInterfaceDeclaration(lastItem)) {
+              const name = lastItem.name;
+              possibleTypes.set(name.text, ts.factory.createTypeReferenceNode(name));
+            }
           }
-
-          instructions.push(...componentInterfaces);
+        } else {
+          const sharedInterface = sharedInterfaces.get(schemaName)!;
+          const name = sharedInterface.name;
+          possibleTypes.set(name.text, ts.factory.createTypeReferenceNode(name));
         }
-
-        possibleTypes.push(schemaIdentifier);
       }
     }
+
+    const propertyType = possibleTypes.size > 1 ? ts.factory.createUnionTypeNode([...possibleTypes.values()]) : [...possibleTypes.values()][0];
 
     return [
       ts.factory.createPropertySignature(
         undefined,
         requestPropKey,
         undefined,
-        ts.factory.createUnionTypeNode(
-          possibleTypes.map((type) =>
-            ts.factory.createTypeReferenceNode(type)
-          )
-        )
+        propertyType
       ),
     ];
   }
 };
 
 const processResponses = (
-  responses: any,
+  responses: JointReqRes["responses"],
   methodInterfaceName: string,
   instructions: ts.Node[],
   sharedInterfaces: Map<string, ts.InterfaceDeclaration>
@@ -198,6 +198,7 @@ const processResponses = (
       const response = responses[statusCode]!;
       const { content } = response;
       const responseInterfaceName = pascalCase(`${methodInterfaceName}-Response-${statusCode}`);
+      const possibleTypes: Map<string, ts.TypeNode> = new Map();
 
       if (!content) {
         statusCodeMembers.push(
@@ -208,12 +209,13 @@ const processResponses = (
             ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword)
           )
         );
+
+        continue;
       } else {
         for (const contentType in content) {
           if (Object.prototype.hasOwnProperty.call(content, contentType)) {
             const { schema } = content[contentType as ContentTypes]!;
             const schemaName = schema.$ref ? pascalCase(schema.$ref.split("/").pop()!) : responseInterfaceName;
-            const possibleTypes: ts.TypeNode[] = [];
 
             if (!sharedInterfaces.has(schemaName)) {
               const componentInterfaces = processSchema(schemaName, schema);
@@ -224,32 +226,35 @@ const processResponses = (
               const typeNode = componentInterfaces.find((node) => ts.isTypeNode(node));
 
               if (typeNode) {
-                possibleTypes.push(typeNode);
+                const name = ts.isTypeAliasDeclaration(typeNode) ? typeNode.name : ts.factory.createIdentifier(schemaName);
+                possibleTypes.set(name.text, typeNode);
               } else {
                 const lastItem = componentInterfaces[componentInterfaces.length - 1];
 
                 if (lastItem && ts.isInterfaceDeclaration(lastItem)) {
-                  possibleTypes.push(ts.factory.createTypeReferenceNode(lastItem.name));
+                  const name = lastItem.name;
+                  possibleTypes.set(name.text, ts.factory.createTypeReferenceNode(name));
                 }
               }
             } else {
               const sharedInterface = sharedInterfaces.get(schemaName)!;
-              possibleTypes.push(ts.factory.createTypeReferenceNode(sharedInterface.name));
+              const name = sharedInterface.name;
+              possibleTypes.set(name.text, ts.factory.createTypeReferenceNode(name));
             }
-
-            const propertyType = possibleTypes.length > 1 ? ts.factory.createUnionTypeNode(possibleTypes) : possibleTypes[0];
-
-            statusCodeMembers.push(
-              ts.factory.createPropertySignature(
-                undefined,
-                ts.factory.createStringLiteral(statusCode),
-                undefined,
-                propertyType,
-              )
-            );
           }
         }
       }
+
+      const propertyType = possibleTypes.size > 1 ? ts.factory.createUnionTypeNode([...possibleTypes.values()]) : [...possibleTypes.values()][0];
+
+      statusCodeMembers.push(
+        ts.factory.createPropertySignature(
+          undefined,
+          ts.factory.createStringLiteral(statusCode),
+          undefined,
+          propertyType,
+        )
+      );
     }
   }
 
@@ -288,21 +293,25 @@ const createTypes = (spec: ParsedSpec): ts.Node[] => {
 
   for (const url in paths) {
     if (Object.prototype.hasOwnProperty.call(paths, url)) {
-      const urlInterfaceName = pascalCase(url);
+      const urlInterfaceName = pascalCase(`${url}-ReqRes`);
+      const urlPropName = pascalCase(sanitisePropKey(url));
+
       const urls = paths[url] as Record<string, JointReqRes>;
       const urlInterfacePropertyMembers = processPaths(urls, urlInterfaceName, instructions, sharedInterfaces);
+
       rootPropertyMembers.push(
         ts.factory.createPropertySignature(
           undefined,
-          ts.factory.createIdentifier(urlInterfaceName),
+          ts.factory.createIdentifier(urlPropName),
           undefined,
           ts.factory.createTypeReferenceNode(ts.factory.createIdentifier(urlInterfaceName))
         )
       );
+
       instructions.push(
         ts.factory.createInterfaceDeclaration(
           undefined,
-          ts.factory.createIdentifier(urlInterfaceName),
+          ts.factory.createIdentifier(sanitiseInterfaceName(urlInterfaceName)),
           undefined,
           undefined,
           urlInterfacePropertyMembers
@@ -314,7 +323,7 @@ const createTypes = (spec: ParsedSpec): ts.Node[] => {
   instructions.push(
     ts.factory.createInterfaceDeclaration(
       undefined,
-      ts.factory.createIdentifier(pascalCase(info.title)),
+      ts.factory.createIdentifier(sanitiseInterfaceName(pascalCase(info.title))),
       undefined,
       undefined,
       rootPropertyMembers

@@ -11,257 +11,246 @@ Input: [PetStore Swagger YAML](https://github.com/swagger-api/swagger-petstore/b
 Output:
 ```ts
 interface Order {
-    id: number;
-    petId: number;
-    quantity: number;
-    shipDate: string;
-    status: string;
-    complete: boolean;
+  id: number;
+  petId: number;
+  quantity: number;
+  shipDate: string;
+  status: string;
+  complete: boolean;
 }
 interface Customer {
-    id: number;
-    username: string;
-    address: Address[];
+  id: number;
+  username: string;
+  address: Address[];
 }
 interface Address {
-    street: string;
-    city: string;
-    state: string;
-    zip: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
 }
 interface Category {
-    id: number;
-    name: string;
+  id: number;
+  name: string;
 }
 interface User {
-    id: number;
-    username: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    phone: string;
-    userStatus: number;
+  id: number;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone: string;
+  userStatus: number;
 }
 interface Tag {
-    id: number;
-    name: string;
+  id: number;
+  name: string;
 }
 interface Pet {
-    id: number;
-    name: string;
-    category: Category;
-    photoUrls: string[];
-    tags: Tag[];
-    status: string;
+  id: number;
+  name: string;
+  category: Category;
+  photoUrls: string[];
+  tags: Tag[];
+  status: string;
 }
 interface ApiResponse {
-    code: number;
-    type: string;
-    message: string;
+  code: number;
+  type: string;
+  message: string;
 }
-interface PetPost {
-    request: Pet | Pet | Pet;
-    response: {
-        "200": Pet;
-        "200": Pet;
-        "405": unknown;
-    };
+interface PetReqResPost {
+  request: Pet;
+  response: {
+      "200": Pet;
+      "405": unknown;
+  };
 }
-interface PetPut {
-    request: Pet | Pet | Pet;
-    response: {
-        "200": Pet;
-        "200": Pet;
-        "400": unknown;
-        "404": unknown;
-        "405": unknown;
-    };
+interface PetReqResPut {
+  request: Pet;
+  response: {
+      "200": Pet;
+      "400": unknown;
+      "404": unknown;
+      "405": unknown;
+  };
 }
-interface Pet {
-    post: PetPost;
-    put: PetPut;
+interface PetReqRes {
+  post: PetReqResPost;
+  put: PetReqResPut;
 }
-interface PetFindByStatusGet {
-    response: {
-        "200": Pet[];
-        "200": Pet[];
-        "400": unknown;
-    };
+interface PetFindByStatusReqResGet {
+  response: {
+      "200": Pet[];
+      "400": unknown;
+  };
 }
-interface PetFindByStatus {
-    get: PetFindByStatusGet;
+interface PetFindByStatusReqRes {
+  get: PetFindByStatusReqResGet;
 }
-interface PetFindByTagsGet {
-    response: {
-        "200": Pet[];
-        "200": Pet[];
-        "400": unknown;
-    };
+interface PetFindByTagsReqResGet {
+  response: {
+      "200": Pet[];
+      "400": unknown;
+  };
 }
-interface PetFindByTags {
-    get: PetFindByTagsGet;
+interface PetFindByTagsReqRes {
+  get: PetFindByTagsReqResGet;
 }
-interface PetPetIdGet {
-    response: {
-        "200": Pet;
-        "200": Pet;
-        "400": unknown;
-        "404": unknown;
-    };
+interface PetPetIdReqResGet {
+  response: {
+      "200": Pet;
+      "400": unknown;
+      "404": unknown;
+  };
 }
-interface PetPetIdPost {
-    response: {
-        "405": unknown;
-    };
+interface PetPetIdReqResPost {
+  response: {
+      "405": unknown;
+  };
 }
-interface PetPetIdDelete {
-    response: {
-        "400": unknown;
-    };
+interface PetPetIdReqResDelete {
+  response: {
+      "400": unknown;
+  };
 }
-interface PetPetId {
-    get: PetPetIdGet;
-    post: PetPetIdPost;
-    delete: PetPetIdDelete;
+interface PetPetIdReqRes {
+  get: PetPetIdReqResGet;
+  post: PetPetIdReqResPost;
+  delete: PetPetIdReqResDelete;
 }
-type PetPetIdUploadImagePostPayload = string;
-interface PetPetIdUploadImagePost {
-    request: PetPetIdUploadImagePostPayload;
-    response: {
-        "200": ApiResponse;
-    };
+interface PetPetIdUploadImageReqResPost {
+  request: string;
+  response: {
+      "200": ApiResponse;
+  };
 }
-interface PetPetIdUploadImage {
-    post: PetPetIdUploadImagePost;
+interface PetPetIdUploadImageReqRes {
+  post: PetPetIdUploadImageReqResPost;
 }
-interface StoreInventoryGetResponse200 {
-    StoreInventoryGetResponse200: unknown;
+interface StoreInventoryReqResGetResponse200 {
+  StoreInventoryReqResGetResponse200: unknown;
 }
-interface StoreInventoryGet {
-    response: {
-        "200": StoreInventoryGetResponse200;
-    };
+interface StoreInventoryReqResGet {
+  response: {
+      "200": StoreInventoryReqResGetResponse200;
+  };
 }
-interface StoreInventory {
-    get: StoreInventoryGet;
+interface StoreInventoryReqRes {
+  get: StoreInventoryReqResGet;
 }
-interface StoreOrderPost {
-    request: Order | Order | Order;
-    response: {
-        "200": Order;
-        "405": unknown;
-    };
+interface StoreOrderReqResPost {
+  request: Order;
+  response: {
+      "200": Order;
+      "405": unknown;
+  };
 }
-interface StoreOrder {
-    post: StoreOrderPost;
+interface StoreOrderReqRes {
+  post: StoreOrderReqResPost;
 }
-interface StoreOrderOrderIdGet {
-    response: {
-        "200": Order;
-        "200": Order;
-        "400": unknown;
-        "404": unknown;
-    };
+interface StoreOrderOrderIdReqResGet {
+  response: {
+      "200": Order;
+      "400": unknown;
+      "404": unknown;
+  };
 }
-interface StoreOrderOrderIdDelete {
-    response: {
-        "400": unknown;
-        "404": unknown;
-    };
+interface StoreOrderOrderIdReqResDelete {
+  response: {
+      "400": unknown;
+      "404": unknown;
+  };
 }
-interface StoreOrderOrderId {
-    get: StoreOrderOrderIdGet;
-    delete: StoreOrderOrderIdDelete;
+interface StoreOrderOrderIdReqRes {
+  get: StoreOrderOrderIdReqResGet;
+  delete: StoreOrderOrderIdReqResDelete;
 }
-interface UserPost {
-    request: User | User | User;
-    response: {
-        "default": User;
-        "default": User;
-    };
+interface UserReqResPost {
+  request: User;
+  response: {
+      "default": User;
+  };
 }
-interface User {
-    post: UserPost;
+interface UserReqRes {
+  post: UserReqResPost;
 }
-User[]
-interface UserCreateWithListPost {
-    request: UserCreateWithListPostPayload;
-    response: {
-        "200": User;
-        "200": User;
-        "default": unknown;
-    };
+interface UserCreateWithListReqResPost {
+  request: User[];
+  response: {
+      "200": User;
+      "default": unknown;
+  };
 }
-interface UserCreateWithList {
-    post: UserCreateWithListPost;
+interface UserCreateWithListReqRes {
+  post: UserCreateWithListReqResPost;
 }
-interface UserLoginGet {
-    response: {
-        "200";
-        "200";
-        "400": unknown;
-    };
+interface UserLoginReqResGet {
+  response: {
+      "200": string;
+      "400": unknown;
+  };
 }
-interface UserLogin {
-    get: UserLoginGet;
+interface UserLoginReqRes {
+  get: UserLoginReqResGet;
 }
-interface UserLogoutGet {
-    response: {
-        "default": unknown;
-    };
+interface UserLogoutReqResGet {
+  response: {
+      "default": unknown;
+  };
 }
-interface UserLogout {
-    get: UserLogoutGet;
+interface UserLogoutReqRes {
+  get: UserLogoutReqResGet;
 }
-interface UserUsernameGet {
-    response: {
-        "200": User;
-        "200": User;
-        "400": unknown;
-        "404": unknown;
-    };
+interface UserUsernameReqResGet {
+  response: {
+      "200": User;
+      "400": unknown;
+      "404": unknown;
+  };
 }
-interface UserUsernamePut {
-    request: User | User | User;
-    response: {
-        "default": unknown;
-    };
+interface UserUsernameReqResPut {
+  request: User;
+  response: {
+      "default": unknown;
+  };
 }
-interface UserUsernameDelete {
-    response: {
-        "400": unknown;
-        "404": unknown;
-    };
+interface UserUsernameReqResDelete {
+  response: {
+      "400": unknown;
+      "404": unknown;
+  };
 }
-interface UserUsername {
-    get: UserUsernameGet;
-    put: UserUsernamePut;
-    delete: UserUsernameDelete;
+interface UserUsernameReqRes {
+  get: UserUsernameReqResGet;
+  put: UserUsernameReqResPut;
+  delete: UserUsernameReqResDelete;
 }
-interface SwaggerPetstoreOpenAPI3.0 {
-    title: "Swagger Petstore - OpenAPI 3.0";
-    version: "1.0.20-SNAPSHOT";
-    Pet: Pet;
-    PetFindByStatus: PetFindByStatus;
-    PetFindByTags: PetFindByTags;
-    PetPetId: PetPetId;
-    PetPetIdUploadImage: PetPetIdUploadImage;
-    StoreInventory: StoreInventory;
-    StoreOrder: StoreOrder;
-    StoreOrderOrderId: StoreOrderOrderId;
-    User: User;
-    UserCreateWithList: UserCreateWithList;
-    UserLogin: UserLogin;
-    UserLogout: UserLogout;
-    UserUsername: UserUsername;
+interface SwaggerPetstoreOpenAPI3_0 {
+  title: "Swagger Petstore - OpenAPI 3.0";
+  version: "1.0.20-SNAPSHOT";
+  Pet: PetReqRes;
+  PetFindByStatus: PetFindByStatusReqRes;
+  PetFindByTags: PetFindByTagsReqRes;
+  PetPetId: PetPetIdReqRes;
+  PetPetIdUploadImage: PetPetIdUploadImageReqRes;
+  StoreInventory: StoreInventoryReqRes;
+  StoreOrder: StoreOrderReqRes;
+  StoreOrderOrderId: StoreOrderOrderIdReqRes;
+  User: UserReqRes;
+  UserCreateWithList: UserCreateWithListReqRes;
+  UserLogin: UserLoginReqRes;
+  UserLogout: UserLogoutReqRes;
+  UserUsername: UserUsernameReqRes;
 }
 ```
 
 ## Future Improvements
-- Handle multiple content-types for responses
-  - As you can see above multipart and json produce two "200" responses
+- Better handle multiple content-types for responses
+  - As you can see above multipart and json produce a union of types for "200" response
 - Required and Optional types
   - Reflect the optional properties using the `required` field in the spec
 - Linting the output to ensure better readability
 - JS/TS Doc comments using the `description` fields
+- Parameters for GET requests

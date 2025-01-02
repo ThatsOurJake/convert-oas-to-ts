@@ -2,6 +2,7 @@ import ts, { Identifier } from "typescript";
 import pascalCase from "./pascal-case";
 import { Schema } from "./parse-open-api-spec";
 import tsArray from "./ts-array";
+import { sanitiseInterfaceName, sanitisePropKey } from "./sanitise-keys";
 
 const createPropertySignature = (propName: string, typeNode: ts.TypeNode) => 
   ts.factory.createPropertySignature(
@@ -21,7 +22,6 @@ const MAP = {
   'default': (propName: string) => createPropertySignature(propName, ts.factory.createKeywordTypeNode(ts.SyntaxKind.UnknownKeyword)),
 };
 
-const RESERVED_TYPESCRIPT_CHARACTERS = ['?', '!', '[]', '<', '>'];
 
 const createInterface = (properties: Record<string, Schema>, objectName: string, interfaces: ts.InterfaceDeclaration[]): ts.InterfaceDeclaration => {
   const instructions: ts.PropertySignature[] = [];
@@ -32,8 +32,7 @@ const createInterface = (properties: Record<string, Schema>, objectName: string,
 
   for (const _key of Object.keys(properties || {})) {
     const value = properties[_key]!;
-    const objectNameContainsReservedCharacters = RESERVED_TYPESCRIPT_CHARACTERS.some((char) => _key.includes(char));
-    const key = objectNameContainsReservedCharacters ? `"${_key}"` : _key;
+    const key = sanitisePropKey(_key);
 
     if (value.$ref) {
       const refKey = value.$ref.split('/').pop();
@@ -83,7 +82,7 @@ const createInterface = (properties: Record<string, Schema>, objectName: string,
 
   return ts.factory.createInterfaceDeclaration(
     undefined,
-    ts.factory.createIdentifier(objectName),
+    ts.factory.createIdentifier(sanitiseInterfaceName(objectName)),
     undefined,
     undefined,
     instructions,
