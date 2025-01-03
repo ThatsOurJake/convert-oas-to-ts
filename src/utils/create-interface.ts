@@ -81,7 +81,7 @@ const createInterface = (properties: Record<string, Schema>, objectName: string,
   }
 
   return ts.factory.createInterfaceDeclaration(
-    undefined,
+    [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
     ts.factory.createIdentifier(sanitiseInterfaceName(objectName)),
     undefined,
     undefined,

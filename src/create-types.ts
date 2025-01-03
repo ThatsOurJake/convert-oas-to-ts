@@ -87,7 +87,7 @@ const processPaths = (
 
       instructions.push(
         ts.factory.createInterfaceDeclaration(
-          undefined,
+          [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
           ts.factory.createIdentifier(sanitiseInterfaceName(methodInterfaceName)),
           undefined,
           undefined,
@@ -310,7 +310,7 @@ const createTypes = (spec: ParsedSpec): ts.Node[] => {
 
       instructions.push(
         ts.factory.createInterfaceDeclaration(
-          undefined,
+          [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
           ts.factory.createIdentifier(sanitiseInterfaceName(urlInterfaceName)),
           undefined,
           undefined,
@@ -322,7 +322,7 @@ const createTypes = (spec: ParsedSpec): ts.Node[] => {
 
   instructions.push(
     ts.factory.createInterfaceDeclaration(
-      undefined,
+      [ts.factory.createToken(ts.SyntaxKind.ExportKeyword)],
       ts.factory.createIdentifier(sanitiseInterfaceName(pascalCase(info.title))),
       undefined,
       undefined,

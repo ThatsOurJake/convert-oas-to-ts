@@ -1,6 +1,8 @@
 import ts from "typescript";
 import createTypes from "./create-types";
 import parseOpenApiSpec from "./utils/parse-open-api-spec";
+import { writeFileSync } from "fs";
+import path from "path";
 
 (async () => {
   const res = parseOpenApiSpec({
@@ -8,7 +10,7 @@ import parseOpenApiSpec from "./utils/parse-open-api-spec";
   });
 
   const { info: { title, version }} = res;
-  const fileName = `${title}-${version}.d.ts`;
+  const fileName = `${title}-${version}.ts`;
 
   const instructions = createTypes(res);
 
@@ -19,4 +21,5 @@ import parseOpenApiSpec from "./utils/parse-open-api-spec";
   const result = printer.printList(ts.ListFormat.MultiLine, ts.factory.createNodeArray(instructions), ts.createSourceFile(fileName, '', ts.ScriptTarget.Latest),);
 
   console.log(result);
+  writeFileSync(path.resolve('dev', fileName), result);
 })();
